@@ -27,7 +27,7 @@ app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
 
 // Health check
-app.get('/api/health', (_req, res) => {
+app.get('/api', (_req, res) => {
   res.json({ ok: true, service: 'resumate-backend' });
 });
 

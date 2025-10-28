@@ -95,6 +95,16 @@ h4 {
   @apply p10 rounded bg-bg flex flex-col gap3 rounded trcking-tight;
 }
 
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .doc {
+    width: 100%;
+    max-width: 100%;
+    min-height: auto;
+    padding: 1rem;
+  }
+}
+
 .doc a {
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -102,6 +112,14 @@ h4 {
 
 body {
   overflow: hidden;
+}
+
+/* Mobile body adjustments */
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
 }
 
 @media print {

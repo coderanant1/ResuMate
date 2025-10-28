@@ -45,5 +45,19 @@ app.listen(PORT, () => {
   console.log(`ResuMate backend listening on port ${PORT}`);
 });
 
+const cors = require('cors');
+
+const allowedOrigins = ['https://resu-mate-azure.vercel.app'];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
 
 

@@ -1,8 +1,14 @@
+// backend/controllers/aiController.js
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { z } from 'zod';
 
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// ✅ Initialize Gemini AI with explicit v1 endpoint
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY, {
+  apiEndpoint: 'https://generativelanguage.googleapis.com/v1'
+});
 
 // Validation schemas
 const AtsScoreSchema = z.object({
@@ -20,6 +26,12 @@ const AutoStructureSchema = z.object({
   projects: z.array(z.string()).optional()
 });
 
+// Helper to strip Markdown code blocks from Gemini response
+function stripMarkdownJson(text) {
+  return text.replace(/(?:json)?\n?([\s\S]*?)/g, '$1').trim();
+}
+
+// ===================== ATS Score =====================
 export const atsScore = async (req, res) => {
   try {
     const { resumeData, jobDescription } = req.body;
@@ -28,13 +40,7 @@ export const atsScore = async (req, res) => {
       return res.status(400).json({ error: 'Resume data and job description are required' });
     }
 
-    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your-gemini-api-key-here') {
-      return res.status(500).json({ 
-        error: 'Gemini API key not configured. Please add your GEMINI_API_KEY to the backend/.env file' 
-      });
-    }
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'models/gemini-2.5-flash' });
 
     const prompt = `
 You are an ATS (Applicant Tracking System) expert. Analyze the resume data against the job description and provide an ATS compatibility score.
@@ -60,13 +66,16 @@ Focus on:
 - Education requirements
 - Format and structure compatibility
 
-Return ONLY valid JSON, no additional text.`;
+Return ONLY valid JSON, no additional text.
+`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
+    let text = await response.text();
 
-    // Parse and validate the response
+    // Strip Markdown code blocks
+    text = stripMarkdownJson(text);
+
     let parsedResponse;
     try {
       parsedResponse = JSON.parse(text);
@@ -75,7 +84,6 @@ Return ONLY valid JSON, no additional text.`;
       return res.status(502).json({ error: 'Invalid response from AI service' });
     }
 
-    // Validate the response structure
     const validatedResponse = AtsScoreSchema.parse(parsedResponse);
 
     res.json({
@@ -88,15 +96,16 @@ Return ONLY valid JSON, no additional text.`;
 
   } catch (error) {
     console.error('ATS Score error:', error);
-    
+
     if (error.name === 'ZodError') {
       return res.status(502).json({ error: 'Invalid AI response format' });
     }
-    
+
     res.status(500).json({ error: 'Server error during ATS analysis' });
   }
 };
 
+// ===================== Auto Structure =====================
 export const autoStructure = async (req, res) => {
   try {
     const { text } = req.body;
@@ -105,13 +114,7 @@ export const autoStructure = async (req, res) => {
       return res.status(400).json({ error: 'Text input is required' });
     }
 
-    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your-gemini-api-key-here') {
-      return res.status(500).json({ 
-        error: 'Gemini API key not configured. Please add your GEMINI_API_KEY to the backend/.env file' 
-      });
-    }
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'models/gemini-2.5-flash' });
 
     const prompt = `
 You are a resume expert. Analyze the following career description text and extract structured information for a resume.
@@ -136,13 +139,16 @@ Guidelines:
 - Include projects if mentioned with descriptions
 - Return empty arrays for fields not found in the text
 
-Return ONLY valid JSON, no additional text.`;
+Return ONLY valid JSON, no additional text.
+`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const textResponse = response.text();
+    let textResponse = await response.text();
 
-    // Parse and validate the response
+    // Strip Markdown code blocks
+    textResponse = stripMarkdownJson(textResponse);
+
     let parsedResponse;
     try {
       parsedResponse = JSON.parse(textResponse);
@@ -151,7 +157,6 @@ Return ONLY valid JSON, no additional text.`;
       return res.status(502).json({ error: 'Invalid response from AI service' });
     }
 
-    // Validate the response structure
     const validatedResponse = AutoStructureSchema.parse(parsedResponse);
 
     res.json({
@@ -167,14 +172,11 @@ Return ONLY valid JSON, no additional text.`;
 
   } catch (error) {
     console.error('Auto Structure error:', error);
-    
+
     if (error.name === 'ZodError') {
       return res.status(502).json({ error: 'Invalid AI response format' });
     }
-    
+
     res.status(500).json({ error: 'Server error during text analysis' });
   }
 };
-
-
-

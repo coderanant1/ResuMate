@@ -26,9 +26,14 @@ const AutoStructureSchema = z.object({
   projects: z.array(z.string()).optional()
 });
 
-// Helper to strip Markdown code blocks from Gemini response
+// Helper to normalize Gemini output to a raw JSON string
 function stripMarkdownJson(text) {
-  return text.replace(/(?:json)?\n?([\s\S]*?)/g, '$1').trim();
+  if (!text) return text;
+  const trimmed = String(text).trim();
+  // Matches ```json ... ``` or ``` ... ``` blocks
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fenced) return fenced[1].trim();
+  return trimmed;
 }
 
 // ===================== ATS Score =====================
@@ -80,8 +85,21 @@ Return ONLY valid JSON, no additional text.
     try {
       parsedResponse = JSON.parse(text);
     } catch (parseError) {
-      console.error('Failed to parse Gemini response:', text);
-      return res.status(502).json({ error: 'Invalid response from AI service' });
+      // Fallback: try to extract the first JSON object within the text
+      const first = text.indexOf('{');
+      const last = text.lastIndexOf('}');
+      if (first !== -1 && last !== -1 && last > first) {
+        const candidate = text.slice(first, last + 1);
+        try {
+          parsedResponse = JSON.parse(candidate);
+        } catch (e) {
+          console.error('Failed to parse Gemini response:', text);
+          return res.status(502).json({ error: 'Invalid response from AI service' });
+        }
+      } else {
+        console.error('Failed to parse Gemini response:', text);
+        return res.status(502).json({ error: 'Invalid response from AI service' });
+      }
     }
 
     const validatedResponse = AtsScoreSchema.parse(parsedResponse);
@@ -153,8 +171,21 @@ Return ONLY valid JSON, no additional text.
     try {
       parsedResponse = JSON.parse(textResponse);
     } catch (parseError) {
-      console.error('Failed to parse Gemini response:', textResponse);
-      return res.status(502).json({ error: 'Invalid response from AI service' });
+      // Fallback: try to extract the first JSON object within the text
+      const first = textResponse.indexOf('{');
+      const last = textResponse.lastIndexOf('}');
+      if (first !== -1 && last !== -1 && last > first) {
+        const candidate = textResponse.slice(first, last + 1);
+        try {
+          parsedResponse = JSON.parse(candidate);
+        } catch (e) {
+          console.error('Failed to parse Gemini response:', textResponse);
+          return res.status(502).json({ error: 'Invalid response from AI service' });
+        }
+      } else {
+        console.error('Failed to parse Gemini response:', textResponse);
+        return res.status(502).json({ error: 'Invalid response from AI service' });
+      }
     }
 
     const validatedResponse = AutoStructureSchema.parse(parsedResponse);
